@@ -66,7 +66,7 @@
   .editor-topbar { display: flex; align-items: center; justify-content: space-between; padding: 22px 28px 0 28px; gap: 14px; }
   .title-input { font-family: var(--font-ui); font-size: 26px; font-weight: 500; color: var(--md-on-surface); background: transparent; border: none; outline: none; width: 100%; min-width: 0; }
   .title-input::placeholder { color: var(--md-on-surface-variant); }
-  .topbar-actions { display: flex; gap: 4px; flex-shrink: 0; position: relative; }
+  .topbar-actions { display: flex; gap: 4px; flex-shrink: 0; position: relative; flex-wrap: wrap; justify-content: flex-end; }
   .editor-divider { border: none; border-top: 1px solid var(--md-outline-variant); margin: 18px 28px 0 28px; }
   .editor-body { flex: 1; overflow-y: auto; padding: 20px 28px 0 28px; -webkit-overflow-scrolling: touch; }
   #content-textarea { width: 100%; height: 100%; resize: none; border: none; outline: none; background: transparent; font-family: var(--font-ui); font-size: 16px; line-height: 1.8; color: var(--md-on-surface); }
@@ -113,6 +113,35 @@
   .insert-menu button { display: block; width: 100%; text-align: left; background: transparent; border: none; color: var(--md-on-surface); font-family: var(--font-ui); font-size: 13px; padding: 10px 12px; border-radius: var(--shape-sm); cursor: pointer; }
   .insert-menu button:hover { background: var(--md-surface-container-highest); }
   .insert-menu-hint { font-size: 11px; color: var(--md-on-surface-variant); padding: 6px 12px 2px 12px; }
+
+  /* Tree / nested pages */
+  .note-row-top { display: flex; align-items: center; gap: 2px; padding-right: 60px; }
+  .tree-toggle { width: 14px; flex-shrink: 0; cursor: pointer; font-size: 10px; color: var(--md-on-surface-variant); text-align: center; }
+  .tree-toggle-spacer { width: 14px; flex-shrink: 0; display: inline-block; }
+  .note-icon { flex-shrink: 0; font-size: 13px; }
+  .note-add-sub { position: absolute; right: 34px; top: 10px; opacity: .55; background: none; border: none; color: var(--md-on-surface-variant); cursor: pointer; font-size: 14px; padding: 6px; border-radius: var(--shape-full); }
+  .note-icon-btn { font-size: 20px; margin-right: 4px; }
+  .breadcrumb { padding: 14px 28px 0 28px; font-size: 12px; color: var(--md-on-surface-variant); display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+  .breadcrumb-item { cursor: pointer; }
+  .breadcrumb-item.current { color: var(--md-on-surface); cursor: default; }
+  .breadcrumb-item:hover:not(.current) { color: var(--md-primary); }
+  .breadcrumb-sep { color: var(--md-outline-variant); }
+  .note-link-row { padding: 4px 28px 0 28px; font-size: 11px; color: var(--md-on-surface-variant); word-break: break-all; }
+
+  /* Todo checkboxes */
+  .md-todo-list { list-style: none; margin: 0 0 14px 0; padding: 0; }
+  .md-todo-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+  .md-todo-check { cursor: pointer; flex-shrink: 0; }
+  .md-todo-done { color: var(--md-on-surface-variant); text-decoration: line-through; }
+
+  .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: var(--md-surface-container-highest); color: var(--md-on-surface); padding: 10px 18px; border-radius: var(--shape-full); font-family: var(--font-ui); font-size: 13px; box-shadow: var(--elev-3); z-index: 100; opacity: 0; transition: opacity .25s ease; max-width: 90vw; text-align: center; }
+  .vault-toggle { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .stat-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+  .stat-box { flex: 1; min-width: 64px; background: var(--md-surface-container-high); border-radius: var(--shape-sm); padding: 10px; text-align: center; }
+  .stat-num { font-size: 20px; font-weight: 600; color: var(--md-primary); }
+  .stat-label { font-size: 10.5px; color: var(--md-on-surface-variant); margin-top: 2px; }
+  .suggestion-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--md-outline-variant); font-size: 12.5px; }
+  .suggestion-row:last-child { border-bottom: none; }
 
   /* Assistant */
   .assistant-wrap { width: 100%; height: 100%; background: var(--md-surface); display: flex; flex-direction: column; }
@@ -188,6 +217,10 @@
     .assistant-header { padding: 14px 16px; }
     .assistant-body { padding: 0 16px 16px 16px; }
     .ai-chat-input-row { padding: 12px 16px; }
+    .icon-btn { width: 32px; height: 32px; font-size: 15px; }
+    .note-icon-btn { font-size: 18px; }
+    .editor-topbar { flex-wrap: wrap; row-gap: 6px; }
+    .note-link-row { display: none; }
   }
 </style>
 </head>
@@ -214,6 +247,9 @@
     confirmDeleteId: null,
     showInsertMenu: false,
     showBackup: false,
+    expandedIds: {},
+    slashMenu: { open: false, triggerPos: 0 },
+    chatUseAllNotes: false,
     ai: { localUrl: "http://localhost:11434/v1", localModel: "llama3" },
     aiLoading: false,
     aiError: "",
@@ -302,7 +338,7 @@
     return '<a href="' + esc(url) + '" target="_blank" rel="noreferrer" class="md-link-card"><span class="md-link-card-host">' + esc(hostname) + '</span><span class="md-link-card-url">' + esc(url) + "</span></a>";
   }
 
-  function renderMarkdownHTML(content, notes, depth) {
+  function renderMarkdownHTML(content, notes, depth, ownerId) {
     var d = depth || 0;
     var lines = content.split("\n");
     var html = "", i = 0;
@@ -324,7 +360,7 @@
         var body;
         if (!targetNote) body = '<span class="assist-muted">Esta nota todavía no existe. Toca el título para crearla.</span>';
         else if (d >= 1) body = '<span class="assist-muted">(nota incrustada dentro de otra, no se expande más)</span>';
-        else if (targetNote.content.trim()) body = renderMarkdownHTML(targetNote.content, notes, d + 1);
+        else if (targetNote.content.trim()) body = renderMarkdownHTML(targetNote.content, notes, d + 1, targetNote.id);
         else body = '<span class="assist-muted">Nota vacía.</span>';
         html += '<div class="md-embed"><div class="md-embed-title" data-action="navigate" data-title="' + esc(targetTitle) + '">' + esc(targetTitle) + '</div><div class="md-embed-body">' + body + "</div></div>";
         i++; continue;
@@ -349,6 +385,19 @@
       }
 
       if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)) { html += '<hr class="md-hr" />'; i++; continue; }
+
+      if (/^\s*[-*]\s\[[ xX]\]\s/.test(line)) {
+        var todoItems = [];
+        while (i < lines.length && /^\s*[-*]\s\[[ xX]\]\s/.test(lines[i])) {
+          var tm = lines[i].match(/^\s*[-*]\s\[([ xX])\]\s(.*)$/);
+          todoItems.push({ checked: tm[1].toLowerCase() === "x", text: tm[2], lineIndex: i });
+          i++;
+        }
+        html += '<ul class="md-ul md-todo-list">' + todoItems.map(function (it) {
+          return '<li class="md-todo-item"><span class="md-todo-check" data-action="toggle-todo" data-owner="' + esc(ownerId || "") + '" data-line="' + it.lineIndex + '">' + (it.checked ? "☑" : "☐") + '</span><span class="' + (it.checked ? "md-todo-done" : "") + '">' + parseInlineHTML(it.text, notes) + "</span></li>";
+        }).join("") + "</ul>";
+        continue;
+      }
 
       if (/^\s*[-*]\s/.test(line)) {
         var items = [];
@@ -398,27 +447,64 @@
   function saveAi() { try { localStorage.setItem(AI_KEY, JSON.stringify(state.ai)); } catch (e) {} }
 
   function makeWelcomeNotes() {
-    var id1 = uid(), id2 = uid();
+    var id1 = uid(), id2 = uid(), id3 = uid();
     return [
-      { id: id1, title: "Bienvenida",
-        content: "# Tu segundo cerebro (100% local)\n\nEste archivo no depende de ningún servidor ni cuenta. Todo se guarda en este navegador.\n\n- `[[Nota]]` enlaza a otra nota\n- `![[Nota]]` incrusta el contenido completo de otra, como abajo\n- Un enlace de YouTube en su propia línea se convierte en video\n- Un enlace a imagen se muestra como imagen\n- Cualquier otro enlace se muestra como tarjeta\n\nUsá el botón + de la barra de arriba para insertar cualquiera de estos.\n\n![[Zettelkasten]]",
+      { id: id1, title: "Bienvenida", parentId: null, icon: "🧠",
+        content: "# Tu segundo cerebro (100% local)\n\nEste archivo no depende de ningún servidor ni cuenta. Todo se guarda en este navegador.\n\n- `[[Nota]]` enlaza a otra nota\n- `![[Nota]]` incrusta el contenido completo de otra, como abajo\n- Escribí `/` al inicio de una línea para insertar un bloque (encabezado, tarea, cita, etc.)\n- Un enlace de YouTube en su propia línea se convierte en video\n- Cada nota tiene subpáginas (como esta) y un enlace directo propio\n\n- [ ] Probar el comando `/`\n- [ ] Crear una subpágina con el botón +\n\n![[Zettelkasten]]",
         createdAt: Date.now() - 60000, updatedAt: Date.now() - 60000 },
-      { id: id2, title: "Zettelkasten",
-        content: "Un #metodo de notas atómicas y enlazadas. Esta nota está incrustada dentro de [[Bienvenida]].\n\nUsá el botón de copia de seguridad (arriba a la izquierda) para exportar tus notas a un archivo .json y llevarlas a otro dispositivo, sin ninguna nube de por medio.",
+      { id: id2, title: "Zettelkasten", parentId: id1, icon: "🔗",
+        content: "Un #metodo de notas atómicas y enlazadas. Esta nota es subpágina de [[Bienvenida]] y también está incrustada dentro de ella.\n\nUsá el botón 🔗 para copiar el enlace directo a esta nota, o 📋 para copiarla como Markdown y pegarla en tu IA local o en NotebookLM.",
+        createdAt: Date.now() - 45000, updatedAt: Date.now() - 45000 },
+      { id: id3, title: "Ejemplo de subpágina", parentId: id2, icon: "📎",
+        content: "Esta nota está dos niveles adentro. Mirá el breadcrumb de arriba para volver a las notas anteriores.\n\nEl botón de copia de seguridad (💾, arriba a la izquierda) también exporta todo el vault como un único archivo .md.",
         createdAt: Date.now() - 30000, updatedAt: Date.now() - 30000 }
     ];
+  }
+
+  function sanitizeNotes() {
+    var ids = {};
+    state.notes.forEach(function (n) { ids[n.id] = true; });
+    state.notes.forEach(function (n) {
+      if (n.parentId && !ids[n.parentId]) n.parentId = null;
+      if (n.parentId === undefined) n.parentId = null;
+      if (!n.icon) n.icon = "📄";
+    });
+  }
+
+  function updateHash(id) {
+    try {
+      if (id) history.replaceState(null, "", "#/note/" + encodeURIComponent(id));
+      else history.replaceState(null, "", location.pathname + location.search);
+    } catch (e) {}
+  }
+
+  function handleHashChange() {
+    var m = location.hash.match(/^#\/note\/(.+)$/);
+    if (m) {
+      var id = decodeURIComponent(m[1]);
+      if (id !== state.activeId && state.notes.some(function (n) { return n.id === id; })) {
+        state.activeId = id;
+        state.assistantOpen = false;
+        if (state.isMobile) state.mobileTab = "editor";
+        render();
+      }
+    }
   }
 
   function init() {
     var loaded = loadNotes();
     state.notes = loaded && loaded.length ? loaded : makeWelcomeNotes();
-    state.activeId = state.notes.length ? state.notes[0].id : null;
+    sanitizeNotes();
+    var hashMatch = location.hash.match(/^#\/note\/(.+)$/);
+    var hashId = hashMatch ? decodeURIComponent(hashMatch[1]) : null;
+    state.activeId = hashId && state.notes.some(function (n) { return n.id === hashId; }) ? hashId : (state.notes.length ? state.notes[0].id : null);
     loadAi();
     window.addEventListener("resize", function () {
       var was = state.isMobile;
       state.isMobile = window.innerWidth < 760;
       if (was !== state.isMobile) render();
     });
+    window.addEventListener("hashchange", handleHashChange);
     render();
   }
 
@@ -450,15 +536,17 @@
   }
 
   /* ---------- actions ---------- */
-  function createNote(initialTitle) {
+  function createNote(initialTitle, parentId) {
     var now = Date.now();
-    var note = { id: uid(), title: (initialTitle && initialTitle.trim()) || "Nota sin título", content: "", createdAt: now, updatedAt: now };
+    var note = { id: uid(), title: (initialTitle && initialTitle.trim()) || "Nota sin título", content: "", parentId: parentId || null, icon: "📄", createdAt: now, updatedAt: now };
     state.notes.unshift(note);
     state.activeId = note.id;
     state.viewMode = "edit";
     state.assistantOpen = false;
+    if (parentId) state.expandedIds[parentId] = true;
     if (state.isMobile) state.mobileTab = "editor";
     saveNotes();
+    updateHash(note.id);
     render();
   }
   function navigateToNote(title) {
@@ -467,6 +555,7 @@
       state.activeId = existing.id;
       state.assistantOpen = false;
       if (state.isMobile) state.mobileTab = "editor";
+      updateHash(existing.id);
       render();
     } else {
       createNote(title);
@@ -476,11 +565,18 @@
     state.activeId = id;
     state.assistantOpen = false;
     if (state.isMobile) state.mobileTab = "editor";
+    updateHash(id);
     render();
   }
   function deleteNote(id) {
+    var deleted = state.notes.find(function (n) { return n.id === id; });
+    var newParent = deleted ? deleted.parentId : null;
+    state.notes.forEach(function (n) { if (n.parentId === id) n.parentId = newParent; });
     state.notes = state.notes.filter(function (n) { return n.id !== id; });
-    if (state.activeId === id) state.activeId = state.notes.length ? state.notes[0].id : null;
+    if (state.activeId === id) {
+      state.activeId = state.notes.length ? state.notes[0].id : null;
+      updateHash(state.activeId);
+    }
     state.confirmDeleteId = null;
     saveNotes();
     render();
@@ -516,7 +612,213 @@
     });
   }
 
-  /* ---------- AI (opcional, 100% local) ---------- */
+  var SLASH_OPTIONS = [
+    { key: "h1", label: "Encabezado 1" },
+    { key: "h2", label: "Encabezado 2" },
+    { key: "h3", label: "Encabezado 3" },
+    { key: "bullet", label: "Lista" },
+    { key: "numbered", label: "Lista numerada" },
+    { key: "todo", label: "Tarea" },
+    { key: "quote", label: "Cita" },
+    { key: "code", label: "Código" },
+    { key: "divider", label: "Divisor" },
+    { key: "link", label: "Enlace a nota" },
+    { key: "embed", label: "Nota incrustada" },
+    { key: "media", label: "Imagen o YouTube" }
+  ];
+  function slashMenuHTML() {
+    return '<div class="insert-menu-backdrop" data-action="close-slash-menu"></div>' +
+      '<div class="insert-menu" style="top:auto;bottom:calc(100% + 6px);right:auto;left:0;">' +
+      '<div class="insert-menu-hint">BLOQUE</div>' +
+      SLASH_OPTIONS.map(function (o) { return '<button data-action="slash-pick" data-key="' + o.key + '">' + o.label + "</button>"; }).join("") +
+      "</div>";
+  }
+  function applySlashBlock(key) {
+    var note = getActiveNote();
+    if (!note || !state.slashMenu.open) return;
+    var pos = state.slashMenu.triggerPos;
+    var content = note.content;
+    var before = content.slice(0, pos);
+    var afterSlash = content.slice(pos + 1);
+    var templates = {
+      h1: ["# ", ""], h2: ["## ", ""], h3: ["### ", ""],
+      bullet: ["- ", ""], numbered: ["1. ", ""], todo: ["- [ ] ", ""],
+      quote: ["> ", ""], divider: ["---\n", ""], code: ["```\n", "\n```"],
+      link: ["[[", "nombre de la nota]]"], embed: ["![[", "nombre de la nota]]"],
+      media: ["", "https://enlace-a-imagen-o-video"]
+    };
+    var pair = templates[key] || ["", ""];
+    var insertText = pair[0] + pair[1];
+    note.content = before + insertText + afterSlash;
+    note.updatedAt = Date.now();
+    saveNotes();
+    state.slashMenu.open = false;
+    render();
+    requestAnimationFrame(function () {
+      var t = document.getElementById("content-textarea");
+      if (!t) return;
+      t.focus();
+      if (key === "link" || key === "embed") {
+        var s1 = before.length + pair[0].length;
+        t.setSelectionRange(s1, s1 + "nombre de la nota".length);
+      } else if (key === "media") {
+        t.setSelectionRange(before.length, before.length + "https://enlace-a-imagen-o-video".length);
+      } else {
+        var c1 = before.length + insertText.length;
+        t.setSelectionRange(c1, c1);
+      }
+    });
+  }
+
+  function toggleTodo(ownerId, lineIndex) {
+    var note = state.notes.find(function (n) { return n.id === ownerId; });
+    if (!note) return;
+    var lines = note.content.split("\n");
+    if (lineIndex < 0 || lineIndex >= lines.length) return;
+    var m = lines[lineIndex].match(/^(\s*[-*]\s\[)([ xX])(\]\s.*)$/);
+    if (!m) return;
+    lines[lineIndex] = m[1] + (m[2].toLowerCase() === "x" ? " " : "x") + m[3];
+    note.content = lines.join("\n");
+    note.updatedAt = Date.now();
+    saveNotes();
+    render();
+  }
+
+  function toast(msg) {
+    var el = document.createElement("div");
+    el.className = "toast";
+    el.textContent = msg;
+    document.body.appendChild(el);
+    requestAnimationFrame(function () { el.style.opacity = "1"; });
+    setTimeout(function () {
+      el.style.opacity = "0";
+      setTimeout(function () { el.remove(); }, 300);
+    }, 1700);
+  }
+  function fallbackCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+  function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(function () { fallbackCopy(text); });
+    } else {
+      fallbackCopy(text);
+    }
+  }
+  function noteLinkFor(id) { return location.origin + location.pathname + "#/note/" + encodeURIComponent(id); }
+  function noteAsMarkdown(note) { return "# " + note.title + "\n\n" + note.content + "\n"; }
+  function exportVaultMarkdown() {
+    var md = state.notes.slice().sort(function (a, b) { return a.title.localeCompare(b.title); })
+      .map(function (n) { return "# " + n.title + "\n" + noteLinkFor(n.id) + "\n\n" + n.content + "\n"; })
+      .join("\n---\n\n");
+    var blob = new Blob([md], { type: "text/markdown" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "segundo-cerebro-vault-" + new Date().toISOString().slice(0, 10) + ".md";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  /* ---------- tree / breadcrumb ---------- */
+  function buildTree() {
+    var byParent = {};
+    state.notes.forEach(function (n) {
+      var pid = n.parentId || "__root__";
+      if (!byParent[pid]) byParent[pid] = [];
+      byParent[pid].push(n);
+    });
+    Object.keys(byParent).forEach(function (k) { byParent[k].sort(function (a, b) { return b.updatedAt - a.updatedAt; }); });
+    function build(pid) {
+      var kids = byParent[pid] || [];
+      return kids.map(function (n) { return { note: n, children: build(n.id) }; });
+    }
+    return build("__root__");
+  }
+  function getBreadcrumb(note) {
+    var chain = [], current = note, guard = 0;
+    while (current && guard < 20) {
+      chain.unshift(current);
+      current = current.parentId ? state.notes.find(function (n) { return n.id === current.parentId; }) : null;
+      guard++;
+    }
+    return chain;
+  }
+
+  /* ---------- vault analysis (cálculo puro, sin IA) ---------- */
+  function computeVaultStats() {
+    var notes = state.notes;
+    var idByTitle = {};
+    notes.forEach(function (n) { idByTitle[n.title.toLowerCase()] = n.id; });
+    var links = [], seen = {};
+    notes.forEach(function (n) {
+      extractWikilinks(n.content).forEach(function (t) {
+        var tid = idByTitle[t.toLowerCase()];
+        if (tid && tid !== n.id) {
+          var k = [n.id, tid].sort().join("|");
+          if (!seen[k]) { seen[k] = true; links.push([n.id, tid]); }
+        }
+      });
+    });
+    var degree = {};
+    links.forEach(function (l) { degree[l[0]] = (degree[l[0]] || 0) + 1; degree[l[1]] = (degree[l[1]] || 0) + 1; });
+    var totalWords = notes.reduce(function (sum, n) { return sum + (n.content.trim() ? n.content.trim().split(/\s+/).length : 0); }, 0);
+    var tagCounts = {};
+    notes.forEach(function (n) { extractTags(n.content).forEach(function (t) { tagCounts[t] = (tagCounts[t] || 0) + 1; }); });
+    var topTags = Object.keys(tagCounts).map(function (t) { return { tag: t, count: tagCounts[t] }; }).sort(function (a, b) { return b.count - a.count; }).slice(0, 5);
+    var ranked = notes.map(function (n) { return { note: n, degree: degree[n.id] || 0 }; }).sort(function (a, b) { return b.degree - a.degree; });
+    var topConnected = ranked.filter(function (r) { return r.degree > 0; }).slice(0, 5);
+    var orphans = notes.filter(function (n) { return (degree[n.id] || 0) === 0; });
+    var suggestions = [];
+    for (var i = 0; i < notes.length && suggestions.length < 5; i++) {
+      for (var j = i + 1; j < notes.length && suggestions.length < 5; j++) {
+        var a = notes[i], b = notes[j];
+        var key = [a.id, b.id].sort().join("|");
+        if (seen[key]) continue;
+        var shared = extractTags(a.content).filter(function (t) { return extractTags(b.content).indexOf(t) !== -1; });
+        if (shared.length > 0) suggestions.push({ a: a, b: b, sharedTags: shared });
+      }
+    }
+    return { totalNotes: notes.length, totalWords: totalWords, totalLinks: links.length, topTags: topTags, topConnected: topConnected, orphans: orphans, suggestions: suggestions };
+  }
+
+  function analysisHTML() {
+    var s = computeVaultStats();
+    var html = '<div class="assist-card"><div class="assist-label">📊 Estado del vault</div><div class="stat-grid">' +
+      '<div class="stat-box"><div class="stat-num">' + s.totalNotes + '</div><div class="stat-label">notas</div></div>' +
+      '<div class="stat-box"><div class="stat-num">' + s.totalWords + '</div><div class="stat-label">palabras</div></div>' +
+      '<div class="stat-box"><div class="stat-num">' + s.totalLinks + '</div><div class="stat-label">conexiones</div></div>' +
+      '<div class="stat-box"><div class="stat-num">' + s.orphans.length + '</div><div class="stat-label">huérfanas</div></div>' +
+      "</div></div>";
+    if (s.topConnected.length) {
+      html += '<div class="assist-card"><div class="assist-label">🏆 Notas más conectadas</div>' +
+        s.topConnected.map(function (r) { return '<div class="backlink-item" data-action="select-note" data-id="' + r.note.id + '">' + esc(r.note.icon || "📄") + " " + esc(r.note.title) + ' <span class="assist-muted">· ' + r.degree + " enlace" + (r.degree === 1 ? "" : "s") + "</span></div>"; }).join("") +
+        "</div>";
+    }
+    if (s.topTags.length) {
+      html += '<div class="assist-card"><div class="assist-label">🏷️ Etiquetas más usadas</div>' +
+        s.topTags.map(function (t) { return '<span class="context-tag">#' + esc(t.tag) + " · " + t.count + "</span>"; }).join("") +
+        "</div>";
+    }
+    if (s.orphans.length) {
+      html += '<div class="assist-card"><div class="assist-label">🧩 Notas huérfanas (sin conexiones)</div>' +
+        s.orphans.slice(0, 6).map(function (n) { return '<div class="backlink-item" data-action="select-note" data-id="' + n.id + '">' + esc(n.icon || "📄") + " " + esc(n.title) + "</div>"; }).join("") +
+        "</div>";
+    }
+    if (s.suggestions.length) {
+      html += '<div class="assist-card"><div class="assist-label">💡 Conexiones sugeridas (comparten etiqueta, no enlazadas)</div>' +
+        s.suggestions.map(function (sg) {
+          return '<div class="suggestion-row"><span class="assist-muted">' + esc(sg.a.title) + " ↔ " + esc(sg.b.title) + " <em>(#" + esc(sg.sharedTags[0]) + ")</em></span>" +
+            '<button class="ai-btn-text" data-action="apply-suggestion" data-a="' + sg.a.id + '" data-b="' + sg.b.id + '">Enlazar</button></div>';
+        }).join("") +
+        "</div>";
+    }
+    return html;
+  }
   function callLocalAI(userPrompt, systemPrompt) {
     var base = state.ai.localUrl.replace(/\/$/, "");
     return fetch(base + "/chat/completions", {
@@ -583,8 +885,15 @@
     state.aiLoading = true; state.aiError = "";
     renderAssistantOnly();
     var note = getActiveNote();
-    var context = note ? "Título: " + note.title + "\n\n" + note.content : "El usuario no tiene ninguna nota abierta ahora mismo.";
-    var system = "Eres el asistente del segundo cerebro del usuario. Respondes en español, breve y concreto, usando el contexto de la nota activa cuando sea relevante.\n\nContexto de la nota activa:\n" + context;
+    var context;
+    if (state.chatUseAllNotes) {
+      var all = state.notes.map(function (n) { return "## " + n.title + "\n" + n.content; }).join("\n\n");
+      if (all.length > 14000) all = all.slice(0, 14000) + "\n\n[...contexto recortado por tamaño...]";
+      context = "Todas las notas del usuario (" + state.notes.length + " en total):\n\n" + all;
+    } else {
+      context = note ? "Título: " + note.title + "\n\n" + note.content : "El usuario no tiene ninguna nota abierta ahora mismo.";
+    }
+    var system = "Eres el asistente del segundo cerebro del usuario. Respondes en español, breve y concreto, usando el contexto entregado cuando sea relevante.\n\nContexto:\n" + context;
     var conversation = state.chatMessages.map(function (m) { return (m.role === "user" ? "Usuario" : "Asistente") + ": " + m.content; }).join("\n");
     callLocalAI(conversation, system).then(function (answer) {
       state.chatMessages.push({ role: "assistant", content: answer.trim() });
@@ -617,7 +926,9 @@
         var notes = parsed.notes || parsed;
         if (Array.isArray(notes)) {
           state.notes = notes;
+          sanitizeNotes();
           state.activeId = notes.length ? notes[0].id : null;
+          updateHash(state.activeId);
           saveNotes();
           render();
         }
@@ -697,27 +1008,43 @@
     return svg;
   }
 
-  function sidebarHTML() {
-    var notes = getFilteredNotes();
-    var tags = getAllTags();
-    var listHtml = "";
-    if (notes.length === 0) {
-      listHtml = '<div class="empty-state">' + (state.notes.length === 0 ? "No hay notas todavía. Creá la primera con el botón de abajo." : "Sin resultados para tu búsqueda.") + "</div>";
-    } else {
-      notes.forEach(function (n) {
-        var confirming = state.confirmDeleteId === n.id;
-        listHtml += '<div class="note-list-item ' + (n.id === state.activeId ? "active" : "") + '" data-action="select-note" data-id="' + n.id + '">' +
+  function sidebarTreeHTML(nodes, depth) {
+    var html = "";
+    nodes.forEach(function (node) {
+      var n = node.note;
+      var hasKids = node.children.length > 0;
+      var expanded = !!state.expandedIds[n.id];
+      var confirming = state.confirmDeleteId === n.id;
+      html += '<div class="note-list-item ' + (n.id === state.activeId ? "active" : "") + '" data-action="select-note" data-id="' + n.id + '">' +
+        '<div class="note-row-top" style="padding-left:' + depth * 16 + 'px;">' +
+          (hasKids ? '<span class="tree-toggle" data-action="toggle-expand" data-id="' + n.id + '">' + (expanded ? "▾" : "▸") + "</span>" : '<span class="tree-toggle-spacer"></span>') +
+          '<span class="note-icon">' + esc(n.icon || "📄") + "</span>" +
           '<div class="note-list-title">' + esc(n.title || "Nota sin título") + "</div>" +
-          '<div class="note-list-meta">' + relTime(n.updatedAt) + "</div>";
-        if (confirming) {
-          listHtml += '<div class="confirm-row" style="position:absolute;right:8px;top:8px;">' +
-            '<button class="confirm-btn yes" data-action="confirm-delete" data-id="' + n.id + '">✓</button>' +
-            '<button class="confirm-btn no" data-action="cancel-delete">✕</button></div>';
-        } else {
-          listHtml += '<button class="note-delete-btn" data-action="ask-delete" data-id="' + n.id + '">🗑</button>';
-        }
-        listHtml += "</div>";
-      });
+        "</div>" +
+        '<div class="note-list-meta" style="padding-left:' + (depth * 16 + 20) + 'px;">' + relTime(n.updatedAt) + "</div>" +
+        '<button class="note-add-sub" data-action="new-subnote" data-id="' + n.id + '" title="Agregar subpágina">+</button>';
+      if (confirming) {
+        html += '<div class="confirm-row" style="position:absolute;right:8px;top:8px;">' +
+          '<button class="confirm-btn yes" data-action="confirm-delete" data-id="' + n.id + '">✓</button>' +
+          '<button class="confirm-btn no" data-action="cancel-delete">✕</button></div>';
+      } else {
+        html += '<button class="note-delete-btn" data-action="ask-delete" data-id="' + n.id + '">🗑</button>';
+      }
+      html += "</div>";
+      if (hasKids && expanded) html += sidebarTreeHTML(node.children, depth + 1);
+    });
+    return html;
+  }
+
+  function sidebarHTML() {
+    var useTree = !state.query.trim() && !state.tagFilter;
+    var tags = getAllTags();
+    var listHtml;
+    if (useTree) {
+      var tree = buildTree();
+      listHtml = tree.length ? sidebarTreeHTML(tree, 0) : '<div class="empty-state">No hay notas todavía. Creá la primera con el botón de abajo.</div>';
+    } else {
+      listHtml = sidebarListInnerOnly();
     }
     var tagsHtml = "";
     if (tags.length > 0) {
@@ -748,12 +1075,15 @@
 
   function backupPanelHTML() {
     return '<div class="ai-settings-card" style="margin-top:12px;">' +
-      '<div class="ai-settings-label">COPIA DE SEGURIDAD</div>' +
+      '<div class="ai-settings-label">COPIA DE SEGURIDAD Y EXPORTACIÓN</div>' +
       '<div class="backup-row">' +
         '<button class="backup-btn" data-action="export-backup">Descargar .json</button>' +
         '<button class="backup-btn" data-action="import-backup">Restaurar archivo</button>' +
       "</div>" +
-      '<div class="ai-hint" style="margin-top:8px;">Tus notas viven solo en este navegador. Exportá seguido para no perderlas y llevalas a otro dispositivo.</div>' +
+      '<div class="backup-row" style="margin-top:6px;">' +
+        '<button class="backup-btn" data-action="export-vault-md">Exportar todo como Markdown (.md)</button>' +
+      "</div>" +
+      '<div class="ai-hint" style="margin-top:8px;">El .md exportado sirve como "fuente" para pegar en NotebookLM, ChatGPT o tu IA local — igual que el botón 📋 de cada nota individual.</div>' +
     "</div>";
   }
 
@@ -772,20 +1102,34 @@
         '<button data-action="insert-youtube">Video de YouTube</button>' +
         '<button data-action="insert-image">Imagen o diapositivas</button>' +
       "</div>" : "";
+    var slashMenu = state.slashMenu.open ? slashMenuHTML() : "";
+    var chain = getBreadcrumb(note);
+    var breadcrumbHtml = chain.length > 1 ? '<div class="breadcrumb">' + chain.map(function (c, idx) {
+      var sep = idx > 0 ? '<span class="breadcrumb-sep">›</span>' : "";
+      var isLast = idx === chain.length - 1;
+      return sep + '<span class="breadcrumb-item' + (isLast ? " current" : "") + '" ' + (isLast ? "" : 'data-action="select-note" data-id="' + c.id + '"') + '>' + esc(c.icon || "📄") + " " + esc(c.title) + "</span>";
+    }).join("") + "</div>" : "";
     var body = state.viewMode === "edit"
-      ? '<textarea id="content-textarea" placeholder="Escribe en markdown… usa [[enlaces]], ![[notas incrustadas]], o pega un link de YouTube en su propia línea">' + esc(note.content) + "</textarea>"
-      : '<div class="preview-pane">' + (note.content.trim() ? renderMarkdownHTML(note.content, state.notes, 0) : '<span style="color:var(--md-on-surface-variant)">Nada que previsualizar todavía.</span>') + "</div>";
+      ? '<div id="slash-menu-container" style="position:relative;">' + slashMenu + "</div>" +
+        '<textarea id="content-textarea" placeholder="Escribe en markdown… usa [[enlaces]], ![[notas incrustadas]], / para bloques, o pega un link de YouTube en su propia línea">' + esc(note.content) + "</textarea>"
+      : '<div class="preview-pane">' + (note.content.trim() ? renderMarkdownHTML(note.content, state.notes, 0, note.id) : '<span style="color:var(--md-on-surface-variant)">Nada que previsualizar todavía.</span>') + "</div>";
     return (
       '<div class="main-panel">' +
+        breadcrumbHtml +
         '<div class="editor-topbar">' +
+          '<button class="icon-btn note-icon-btn" data-action="edit-icon" data-id="' + note.id + '" title="Cambiar icono">' + esc(note.icon || "📄") + "</button>" +
           '<input class="title-input" id="title-input" placeholder="Título de la nota" value="' + esc(note.title) + '" />' +
           '<div class="topbar-actions">' +
+            '<button class="icon-btn" data-action="copy-link" data-id="' + note.id + '" title="Copiar enlace directo a esta nota">🔗</button>' +
+            '<button class="icon-btn" data-action="copy-markdown" data-id="' + note.id + '" title="Copiar como Markdown para IA local / NotebookLM">📋</button>' +
+            '<button class="icon-btn" data-action="new-subnote" data-id="' + note.id + '" title="Agregar subpágina">📑</button>' +
             '<button class="icon-btn" data-action="toggle-insert-menu" title="Insertar">+</button>' +
             insertMenu +
             '<button class="icon-btn" data-action="toggle-view-mode" title="Editar / Vista previa">' + (state.viewMode === "edit" ? "👁" : "✏️") + "</button>" +
             (!state.isMobile ? '<button class="icon-btn" data-action="open-assistant" title="Asistente">✨</button>' : "") +
           "</div>" +
         "</div>" +
+        '<div class="note-link-row">' + esc(noteLinkFor(note.id)) + "</div>" +
         '<hr class="editor-divider" />' +
         '<div class="editor-body">' + body + "</div>" +
         '<div class="status-bar" id="status-bar">' + wordCount + " palabras · guardado · editado " + relTime(note.updatedAt) + "</div>" +
@@ -824,8 +1168,11 @@
           "</div></div>";
       }
     } else if (section === "graph") {
-      var w = state.isMobile ? 340 : 760, h = state.isMobile ? 440 : 520;
-      body = '<div class="assistant-body" style="flex:1;"><div class="graph-embed" id="graph-embed">' + graphSvgHTML(w, h) + "</div></div>";
+      var w = state.isMobile ? 340 : 760, h = state.isMobile ? 300 : 420;
+      body = '<div class="assistant-body">' +
+        '<div class="graph-embed" id="graph-embed" style="min-height:' + h + 'px;">' + graphSvgHTML(w, h) + "</div>" +
+        analysisHTML() +
+        "</div>";
     } else if (section === "chat") {
       body = '<div class="assistant-body">';
       if (state.showAiSettings) {
@@ -836,6 +1183,7 @@
           '<div class="ai-hint">Se conecta a un servidor compatible con la API de OpenAI (Ollama, LM Studio, etc.) que vos controlás. Sin esto configurado, el asistente no funciona — el resto de la app sigue funcionando igual.</div>' +
         "</div>";
       }
+      body += '<div class="ai-hint" style="margin-bottom:2px;"><span class="vault-toggle" data-action="toggle-vault-context">' + (state.chatUseAllNotes ? "☑" : "☐") + " Usar todo el vault como contexto (como NotebookLM)</span></div>";
       body += '<div class="ai-quick-actions">' +
         ["summary:Resumir", "tags:Etiquetas", "continue:Continuar", "related:Relacionadas"].map(function (pair) {
           var parts = pair.split(":"); var key = parts[0], label = parts[1];
@@ -927,6 +1275,46 @@
       case "toggle-backup": state.showBackup = !state.showBackup; render(); break;
       case "export-backup": exportBackup(); break;
       case "import-backup": document.getElementById("import-file-input").click(); break;
+      case "toggle-expand": {
+        var eid = el.getAttribute("data-id");
+        state.expandedIds[eid] = !state.expandedIds[eid];
+        render();
+        break;
+      }
+      case "new-subnote": createNote(null, el.getAttribute("data-id")); break;
+      case "edit-icon": {
+        var nid = el.getAttribute("data-id");
+        var n3 = state.notes.find(function (x) { return x.id === nid; });
+        if (n3) {
+          var val = prompt("Icono (emoji o texto corto):", n3.icon || "📄");
+          if (val !== null) { n3.icon = val.trim() || "📄"; n3.updatedAt = Date.now(); saveNotes(); render(); }
+        }
+        break;
+      }
+      case "copy-link": copyToClipboard(noteLinkFor(el.getAttribute("data-id"))); toast("Enlace copiado"); break;
+      case "copy-markdown": {
+        var n4 = state.notes.find(function (x) { return x.id === el.getAttribute("data-id"); });
+        if (n4) { copyToClipboard(noteAsMarkdown(n4)); toast("Markdown copiado — pegalo en tu IA local o NotebookLM"); }
+        break;
+      }
+      case "export-vault-md": exportVaultMarkdown(); break;
+      case "toggle-vault-context": state.chatUseAllNotes = !state.chatUseAllNotes; renderAssistantOnly(); break;
+      case "toggle-todo": toggleTodo(el.getAttribute("data-owner"), parseInt(el.getAttribute("data-line"), 10)); break;
+      case "apply-suggestion": {
+        var aid = el.getAttribute("data-a"), bid = el.getAttribute("data-b");
+        var na = state.notes.find(function (x) { return x.id === aid; });
+        var nb = state.notes.find(function (x) { return x.id === bid; });
+        if (na && nb) {
+          na.content += "\n\n[[" + nb.title + "]]";
+          na.updatedAt = Date.now();
+          saveNotes();
+          toast("Enlazado: " + na.title + " → " + nb.title);
+          renderAssistantOnly();
+        }
+        break;
+      }
+      case "close-slash-menu": state.slashMenu.open = false; render(); break;
+      case "slash-pick": applySlashBlock(el.getAttribute("data-key")); break;
     }
   });
 
@@ -961,6 +1349,17 @@
           sb.textContent = wc + " palabras · guardado · editado justo ahora";
         }
       }
+      var ta = e.target;
+      var pos = ta.selectionStart;
+      var val = ta.value;
+      var slashContainer = document.getElementById("slash-menu-container");
+      if (pos > 0 && val[pos - 1] === "/" && (pos === 1 || val[pos - 2] === "\n")) {
+        state.slashMenu = { open: true, triggerPos: pos - 1 };
+        if (slashContainer) slashContainer.innerHTML = slashMenuHTML();
+      } else if (state.slashMenu.open) {
+        state.slashMenu.open = false;
+        if (slashContainer) slashContainer.innerHTML = "";
+      }
       return;
     }
     if (id === "chat-input") { state.chatInput = e.target.value; return; }
@@ -977,11 +1376,18 @@
     if (notes.length === 0) return '<div class="empty-state">' + (state.notes.length === 0 ? "No hay notas todavía. Creá la primera con el botón de abajo." : "Sin resultados para tu búsqueda.") + "</div>";
     var html = "";
     notes.forEach(function (n) {
+      var confirming = state.confirmDeleteId === n.id;
       html += '<div class="note-list-item ' + (n.id === state.activeId ? "active" : "") + '" data-action="select-note" data-id="' + n.id + '">' +
-        '<div class="note-list-title">' + esc(n.title || "Nota sin título") + "</div>" +
-        '<div class="note-list-meta">' + relTime(n.updatedAt) + "</div>" +
-        '<button class="note-delete-btn" data-action="ask-delete" data-id="' + n.id + '">🗑</button>' +
-        "</div>";
+        '<div class="note-row-top"><span class="tree-toggle-spacer"></span><span class="note-icon">' + esc(n.icon || "📄") + '</span><div class="note-list-title">' + esc(n.title || "Nota sin título") + "</div></div>" +
+        '<div class="note-list-meta" style="padding-left:20px;">' + relTime(n.updatedAt) + "</div>";
+      if (confirming) {
+        html += '<div class="confirm-row" style="position:absolute;right:8px;top:8px;">' +
+          '<button class="confirm-btn yes" data-action="confirm-delete" data-id="' + n.id + '">✓</button>' +
+          '<button class="confirm-btn no" data-action="cancel-delete">✕</button></div>';
+      } else {
+        html += '<button class="note-delete-btn" data-action="ask-delete" data-id="' + n.id + '">🗑</button>';
+      }
+      html += "</div>";
     });
     return html;
   }
